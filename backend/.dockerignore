@@ -1,0 +1,13 @@
+transcripts/
+summaries/
+audio_uploads/
+text_uploads/
+instance/
+__pycache__/
+env/
+dump.rdb
+Procfile
+runtime.txt
+.dockerignore
+Dockerfile
+docker-compose.yml

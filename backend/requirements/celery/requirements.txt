@@ -1,0 +1,10 @@
+flask
+flask_cors
+celery[sqs]
+redis
+openai
+openai-whisper
+supabase
+python-dotenv
+mutagen
+boto3

@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  web:
+    image: pashakhomchenko/scribe-flask
+    command: gunicorn --bind 0.0.0.0:5000 app:app
+    ports:
+      - "5000:5000"
+    volumes:
+      - mydata:/app/files
+    env_file:
+      - .env
+
+  flower:
+    image: pashakhomchenko/scribe-flower
+    command: celery -A app.celery flower --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
+    ports:
+      - "5555:5555"
+    volumes:
+      - mydata:/app/files
+    env_file:
+      - .env
+
+volumes:
+  mydata:
+    driver_opts:
+      # Access point configuration
+      uid: 0
+      gid: 0

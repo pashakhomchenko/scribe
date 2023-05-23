@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
+html {
+  height: 100%;
+  box-sizing: border-box;
+  touch-action: manipulation;
+  font-feature-settings: 'case' 1, 'rlig' 1, 'calt' 0;
+  scroll-behavior: smooth;
+}
+
+html,
+body {
+  font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Helvetica Neue',
+    'Helvetica', sans-serif;
+  text-rendering: optimizeLegibility;
+  @apply antialiased;
+}
+
+body {
+  position: relative;
+  min-height: 100%;
+  margin: 0;
+}
+
+a {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+.animated {
+  -webkit-animation-duration: 1s;
+  animation-duration: 1s;
+  -webkit-animation-duration: 1s;
+  animation-duration: 1s;
+  -webkit-animation-fill-mode: both;
+  animation-fill-mode: both;
+}
+
+.height-screen-helper {
+  height: calc(100vh - 80px);
+  min-height: 600px;
+}
+
+::file-selector-button {
+  @apply bg-black h-full text-white font-medium cursor-pointer py-2 px-4 mr-4 border-none rounded-l;
+}
+
+.filepond--root {
+  @apply border-2 border-dashed border-gray-400 rounded-lg h-64;
+}
+
+.filepond--root .filepond--drop-label {
+  @apply h-64;
+}

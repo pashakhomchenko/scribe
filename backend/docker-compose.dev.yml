@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: dockerfiles/flask/Dockerfile
+    image: pashakhomchenko/scribe-flask
+    command: flask --app scribe --debug run --host 0.0.0.0 --port 5000
+    volumes:
+      - .:/app
+    ports:
+      - 5000:5000
+
+  flower:
+    build:
+      context: .
+      dockerfile: dockerfiles/flower/Dockerfile
+    image: pashakhomchenko/scribe-flower
+    command: celery -A app.celery flower
+    volumes:
+      - .:/app
+    ports:
+      - 5555:5555
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: dockerfiles/celery/Dockerfile
+    image: pashakhomchenko/scribe-celery
+    command: celery -A scribe.tasks.app worker -l info
+    volumes:
+      - .:/app

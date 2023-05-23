@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  web:
+    image: pashakhomchenko/scribe-flask
+    command: gunicorn --bind 0.0.0.0:5000 app:app
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis
+    volumes:
+      - mydata:/app/files
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  celery-worker:
+    image: pashakhomchenko/scribe-celery
+    command: celery -A scribe.tasks.app worker -l info
+    depends_on:
+      - redis
+    volumes:
+      - mydata:/app/files
+    env_file:
+      - .env
+    deploy:
+      resources:
+        reservations:
+          cpus: '4'
+          memory: 8G
+          devices:
+            - capabilities: [ "gpu" ]
+              count: 1
+
+  flower:
+    image: pashakhomchenko/scribe-flower
+    command: celery -A app.celery flower --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    volumes:
+      - mydata:/app/files
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  redis:
+    image: redis:alpine
+    env_file:
+      - .env
+    volumes:
+      - mydata:/app/files
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+volumes:
+  mydata:
+    driver_opts:
+      # Access point configuration
+      uid: 0
+      gid: 0

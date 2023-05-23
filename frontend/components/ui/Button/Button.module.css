@@ -1,0 +1,24 @@
+.root {
+  @apply inline-flex justify-center rounded-md bg-black py-2 px-3 text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500;
+}
+
+.root[data-active] {
+  @apply bg-zinc-600;
+}
+
+.loading {
+  @apply bg-zinc-700 text-zinc-500 border-zinc-600 cursor-not-allowed;
+}
+
+.slim {
+  @apply py-2 transform-none normal-case;
+}
+
+.disabled,
+.disabled:hover {
+  @apply text-zinc-400 border-zinc-600 bg-zinc-700 cursor-not-allowed;
+  filter: grayscale(1);
+  -webkit-transform: translateZ(0);
+  -webkit-perspective: 1000;
+  -webkit-backface-visibility: hidden;
+}
