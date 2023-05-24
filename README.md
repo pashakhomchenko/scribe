@@ -1,19 +1,16 @@
-# scribe
-
+# 🖋️ Scribe
 Personal note-taker for conversations using Whisper and GPT
 
+## Environmental files
+This project depends on two .env files (one for each folder) which you need to fill out yourself. There are .env.example files that will help you to find the right information
+
 ## Backend
-
-To install the server, go to the backend directory and run the following command:
-`./bin/install.sh`
-
-To start the server, go to the backend directory and run the following command:
-`./bin/run.sh`
+We use Docker for development, so all you need to do is to make sure that you have Docker installed and run the following command:
+`docker compose -f docker-compose.all.dev.yml up -d --build`
 
 ## Frontend
-
-To install the frontend, go to the frontend directory and run the following command:
+To install the frontend dependencies, go to the frontend directory and run the following command:
 `npm install`
 
-To run the frontend, go to the frontend directory and run the following command:
+To launch the frontend, go to the frontend directory and run the following command:
 `npm run dev`
