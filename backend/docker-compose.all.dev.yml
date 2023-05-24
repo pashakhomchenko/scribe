@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/flask/Dockerfile
-    command: gunicorn --bind 0.0.0.0:5000 app:app
+    command: flask --app scribe --debug run --host 0.0.0.0 --port 5000
     ports:
       - "5000:5000"
     depends_on:
@@ -14,11 +14,6 @@ services:
       - .:/app
     env_file:
       - .env
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
 
   celery-worker:
     build:
@@ -31,15 +26,12 @@ services:
       - .:/app
     env_file:
       - .env
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 8G
 
   flower:
-    image: pashakhomchenko/scribe-flower
-    command: celery -A app.celery flower --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
+    build:
+      context: .
+      dockerfile: dockerfiles/flower/Dockerfile
+    command: celery -A app.celery flower
     ports:
       - "5555:5555"
     depends_on:
@@ -48,11 +40,6 @@ services:
       - .:/app
     env_file:
       - .env
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 1G
 
   redis:
     image: redis:alpine
@@ -60,8 +47,3 @@ services:
       - .env
     volumes:
       - .:/app
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 1G
