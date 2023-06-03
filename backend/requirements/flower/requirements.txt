@@ -1,9 +1,0 @@
-flower==1.2.0
-flask
-flask_cors
-celery[sqs]
-redis
-mutagen
-supabase
-python-dotenv
-boto3

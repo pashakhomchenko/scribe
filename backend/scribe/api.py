@@ -73,6 +73,8 @@ def submit():
             if os.path.isfile(filename):
                 os.remove(filename)
             return {"message": f"Text file is too big, the size must be less than {g.subscription['max_audio_length']} KB (1 minute of conversation is approximately 1KB in plain text file)"}, 400
+        data, count = supabase.table('summaries').insert(
+            {'transcript_file': filename}).execute()
 
     # Decrease user credits
     utils.decrease_credits(g.user.id)
