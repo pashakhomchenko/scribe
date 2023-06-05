@@ -2,7 +2,6 @@
 import os
 from flask import Flask
 from flask_cors import CORS
-from celery import Celery, Task
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -18,13 +17,8 @@ def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
         SECRET_KEY='dev',
-        CELERY={
-            "broker_url": os.environ.get('REDIS_URL'),
-            "result_backend": os.environ.get('REDIS_URL'),
-        },
     )
 
-    celery_init_app(app)
     supabase_init_app(app)
 
     app.config.from_object(config)
@@ -46,19 +40,6 @@ def create_app(test_config=None):
 
     CORS(app)
     return app
-
-
-def celery_init_app(app: Flask) -> Celery:
-    class FlaskTask(Task):
-        def __call__(self, *args: object, **kwargs: object) -> object:
-            with app.app_context():
-                return self.run(*args, **kwargs)
-
-    celery_app = Celery(app.name, task_cls=FlaskTask)
-    celery_app.config_from_object(app.config["CELERY"])
-    celery_app.set_default()
-    app.extensions["celery"] = celery_app
-    return celery_app
 
 
 def supabase_init_app(app: Flask) -> Client:

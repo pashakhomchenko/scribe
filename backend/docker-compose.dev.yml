@@ -12,22 +12,10 @@ services:
     ports:
       - 5000:5000
 
-  flower:
+  transcribe:
     build:
       context: .
-      dockerfile: dockerfiles/flower/Dockerfile
-    image: pashakhomchenko/scribe-flower
-    command: celery -A app.celery flower
-    volumes:
-      - .:/app
-    ports:
-      - 5555:5555
-
-  celery-worker:
-    build:
-      context: .
-      dockerfile: dockerfiles/celery/Dockerfile
-    image: pashakhomchenko/scribe-celery
-    command: celery -A scribe.tasks.app worker -l info
+      dockerfile: dockerfiles/transcribe/Dockerfile
+    image: pashakhomchenko/scribe-transcribe
     volumes:
       - .:/app

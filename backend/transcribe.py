@@ -1,6 +1,8 @@
 """Celery tasks."""
 import os
 import time
+import requests
+import argparse
 from datetime import datetime
 import pathlib
 from supabase import create_client, Client
@@ -52,24 +54,40 @@ def save_file(text, directory) -> str:
 
 
 def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description='Generate summary for a transcript file')
+    parser.add_argument('--summary_id', type=int,
+                        help='ID of the summary to generate', required=True)
+    args = parser.parse_args()
+    summary_id = args.summary_id
+
     supabase: Client = create_client(
         os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
-    # Fetch all rows from your_table
-    result = supabase.table("summaries").select("*").execute()
+    # Fetch the row from supabase
+    res = supabase.table("summaries").select(
+        "*").eq('id', summary_id).execute()['data'][0]
 
-    if result.error:
-        print(f"Error fetching data: {result.error}")
+    if res.error:
+        print(f"Error fetching data: {res.error}")
         return
 
-    for row in result.data:
-        if row['transcript_file'] is None:
-            audio_file = row['audio_file']
-            transcript_filename = generate_transcript(audio_file)
-            # add transcript file to supabase
-            supabase.table('summaries').update(
-                {'transcript_file': transcript_filename}).eq('id', row['id']).execute()
-            # send api request to summarize the transcript
+    if res['transcript_file'] is None:
+        audio_file = res['audio_file']
+        transcript_filename = generate_transcript(audio_file)
+        # add transcript file to supabase
+        supabase.table('summaries').update(
+            {'transcript_file': transcript_filename}).eq('id', res['id']).execute()
+        # send api request to summarize the transcript
+        url = os.getenv("SUMMARIZE_URL")
+        if url:
+            with open(transcript_filename, 'r', encoding='utf-8') as f:
+                transcript = f.read()
+            response = requests.post(
+                url, json={'transcript_file': transcript, 'id': summary_id}, timeout=10)
+            if response.status_code != 202:
+                print(f"Error sending request: {response.text}")
 
 
 if __name__ == '__main__':

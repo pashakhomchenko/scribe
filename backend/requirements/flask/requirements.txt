@@ -1,7 +1,6 @@
 flask
 flask_cors
-celery[sqs]
-redis
+openai
 mutagen
 supabase
 python-dotenv
