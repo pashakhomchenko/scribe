@@ -3,6 +3,7 @@ import smtplib
 import ssl
 import os
 import time
+import pathlib
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -12,11 +13,10 @@ from flask import current_app as app, jsonify, g, request, url_for
 from supabase import Client
 import openai
 
-TRANSCRIPTS_FOLDER = None
-SUMMARIES_FOLDER = None
-with app.app_context():
-    TRANSCRIPTS_FOLDER = app.config['TRANSCRIPTS_FOLDER']
-    SUMMARIES_FOLDER = app.config['SUMMARIES_FOLDER']
+TRANSCRIPTS_FOLDER = pathlib.Path(
+    __file__).resolve().parent.parent/'files'/'transcripts'
+SUMMARIES_FOLDER = pathlib.Path(
+    __file__).resolve().parent.parent/'files'/'summaries'
 
 
 class AuthError(Exception):
@@ -120,7 +120,7 @@ def send_summary(user_email: str, audio_filename: str, summary_filename: str, tr
         os.remove(audio_filename)
 
 
-def generate_summary(transcript_filename: str, summary_id: int):
+def generate_summary(transcript_filename: str, summary_id: int, approval_link: str):
     print("Generating summary...")
     # Set API key, prompt, and model
     openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -221,7 +221,8 @@ def generate_summary(transcript_filename: str, summary_id: int):
         {'summary_file': summary_filename, 'summary': message}).eq('id', summary_id).execute()
 
     # Send the approval email
-    send_approval_email(summary_filename, transcript_filename, summary_id)
+    send_approval_email(summary_filename, transcript_filename,
+                        summary_id, approval_link)
 
     return summary_filename
 
@@ -248,13 +249,9 @@ def save_file(text, directory) -> str:
     return f'{directory}/{filename}'
 
 
-def send_approval_email(summary_filename: str, transcript_filename: str, summary_id: int):
+def send_approval_email(summary_filename: str, transcript_filename: str, summary_id: int, approval_link: str):
     """Send email with summary for QA."""
     print("Sending email with summary for approval...")
-    approval_link = ""
-    with app.app_context():
-        approval_link = url_for(
-            'approve', summary_id=summary_id, _external=True)
     text = f'Please review the summary below and click the link to approve it.\n\n{approval_link}'
     subject = 'Generated summary for approval'
     send_mail(None, subject, text, [summary_filename, transcript_filename])

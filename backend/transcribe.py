@@ -11,7 +11,7 @@ import whisper
 
 load_dotenv()
 TRANSCRIPTS_FOLDER = pathlib.Path(
-    __file__).resolve().parent.parent/"files"/"transcripts"
+    __file__).resolve().parent/"files"/"transcripts"
 
 
 def generate_transcript(audio_filename):

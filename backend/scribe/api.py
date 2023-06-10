@@ -3,7 +3,7 @@ import os
 import time
 import threading
 from datetime import datetime
-from flask import g, request, Blueprint, current_app as app
+from flask import url_for, g, request, Blueprint, current_app as app
 from werkzeug.utils import secure_filename
 from supabase import Client
 import mutagen
@@ -67,14 +67,14 @@ def submit():
             return {"message": f"Audio file is too long, the length must be less than {g.subscription['max_audio_length']} minutes"}, 400
         data, count = supabase.table('summaries').insert(
             {'audio_file': filename, 'user_email': g.user.email}).execute()
-        summary_id = data[0]['id']
+        summary_id = data[1][0]['id']
 
         # Push a job to AWS Batch
         job_name = f"summarize-audio-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
         job_definition = "scribe-job-definition"
         job_queue = "scribe-job-queue"
-        command = ["python", "summarize.py", "--summary_id", summary_id]
-        client = boto3.client('batch')
+        command = ["python", "summarize.py", "--summary_id", str(summary_id)]
+        client = boto3.client('batch', region_name='us-east-1')
         response = client.submit_job(
             jobName=job_name,
             jobQueue=job_queue,
@@ -83,6 +83,7 @@ def submit():
                 'command': command
             }
         )
+        print(response)
 
     # Check the size of text file
     if file_type == 'text':
@@ -114,9 +115,11 @@ def summarize():
     if not summary_id:
         return {"message": "ID not found in request body"}, 400
 
+    approval_link = url_for(
+        'approve', summary_id=summary_id, _external=True)
     # Run generate_summary asynchronously
     thread = threading.Thread(target=utils.generate_summary,
-                              args=(transcript_file, summary_id))
+                              args=(transcript_file, summary_id, approval_link))
     thread.start()
 
     # Return a success message to the client
