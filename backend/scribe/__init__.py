@@ -7,7 +7,7 @@ from supabase import create_client, Client
 
 from . import api
 from . import config
-from . import utils
+from . import auth
 
 
 def create_app(test_config=None):
@@ -36,7 +36,7 @@ def create_app(test_config=None):
         pass
 
     app.register_blueprint(api.bp)
-    app.register_error_handler(utils.AuthError, utils.handle_auth_error)
+    app.register_error_handler(auth.AuthError, auth.handle_auth_error)
 
     CORS(app)
     return app

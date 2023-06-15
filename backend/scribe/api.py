@@ -7,8 +7,8 @@ from flask import url_for, g, request, Blueprint, current_app as app
 from werkzeug.utils import secure_filename
 from supabase import Client
 import mutagen
-import boto3
-from . import utils
+from . import summary
+from . import auth
 
 bp = Blueprint('api', __name__, url_prefix='/api/v1')
 
@@ -26,8 +26,8 @@ def get_resources():
 
 
 @bp.route("/submit/", methods=['POST'])
-@utils.requires_auth
-@utils.requires_subscription
+@auth.requires_auth
+@auth.requires_subscription
 def submit():
     """Accept files for summary from subscribed users."""
 
@@ -38,7 +38,7 @@ def submit():
     if file.filename == '':
         return {"message": "No file selected"}, 400
 
-    if utils.allowed_file(file.filename):
+    if auth.allowed_file(file.filename):
         return {"message": "Invalid file type"}, 400
     file_ext = os.path.splitext(file.filename)[1].lower()
 
@@ -67,23 +67,6 @@ def submit():
             return {"message": f"Audio file is too long, the length must be less than {g.subscription['max_audio_length']} minutes"}, 400
         data, count = supabase.table('summaries').insert(
             {'audio_file': filename, 'user_email': g.user.email}).execute()
-        summary_id = data[1][0]['id']
-
-        # Push a job to AWS Batch
-        job_name = f"summarize-audio-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
-        job_definition = "scribe-job-definition"
-        job_queue = "scribe-job-queue"
-        command = ["python", "summarize.py", "--summary_id", str(summary_id)]
-        client = boto3.client('batch', region_name='us-east-1')
-        response = client.submit_job(
-            jobName=job_name,
-            jobQueue=job_queue,
-            jobDefinition=job_definition,
-            containerOverrides={
-                'command': command
-            }
-        )
-        print(response)
 
     # Check the size of text file
     if file_type == 'text':
@@ -101,7 +84,7 @@ def submit():
         thread.start()
 
     # Decrease user credits
-    utils.decrease_credits(g.user.id)
+    auth.decrease_credits(g.user.id)
 
     return {"message": "File accepted for processing"}, 202
 
@@ -118,7 +101,7 @@ def summarize():
     approval_link = url_for(
         'approve', summary_id=summary_id, _external=True)
     # Run generate_summary asynchronously
-    thread = threading.Thread(target=utils.generate_summary,
+    thread = threading.Thread(target=summary.generate_summary,
                               args=(transcript_file, summary_id, approval_link))
     thread.start()
 
@@ -132,7 +115,7 @@ def approve(summary_id):
     supabase: Client = app.extensions['supabase']
     res = supabase.table('summaries').select('user_email', 'audio_file',
                                              'summary_file', 'transcript_file').eq('id', summary_id).execute()['data'][0]
-    thread = threading.Thread(target=utils.send_summary,
+    thread = threading.Thread(target=summary.send_summary,
                               args=(res['user_email'], res['audio_file'], res['summary_file'], res['transcript_file']))
     thread.start()
     return {"message": "Summary approved"}, 200

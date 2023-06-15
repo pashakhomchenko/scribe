@@ -2,7 +2,6 @@
 import os
 import time
 import requests
-import argparse
 from datetime import datetime
 import pathlib
 from supabase import create_client, Client
@@ -54,40 +53,34 @@ def save_file(text, directory) -> str:
 
 
 def main():
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(
-        description='Generate summary for a transcript file')
-    parser.add_argument('--summary_id', type=int,
-                        help='ID of the summary to generate', required=True)
-    args = parser.parse_args()
-    summary_id = args.summary_id
-
     supabase: Client = create_client(
         os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+        print("Connected to supabase")
 
-    # Fetch the row from supabase
+    # Fetch all the entries that require transcription from supabase
     res = supabase.table("summaries").select(
-        "*").eq('id', summary_id).execute()['data'][0]
+        "*").eq("transcript_file", None).execute()['data']
 
     if res.error:
         print(f"Error fetching data: {res.error}")
         return
 
-    if res['transcript_file'] is None:
-        audio_file = res['audio_file']
+    for row in res:
+        if row['audio_file'] is not None:
+            continue
+        audio_file = row['audio_file']
         transcript_filename = generate_transcript(audio_file)
         # add transcript file to supabase
         supabase.table('summaries').update(
-            {'transcript_file': transcript_filename}).eq('id', res['id']).execute()
+            {'transcript_file': transcript_filename}).eq('id', row['id']).execute()
         # send api request to summarize the transcript
         url = os.getenv("SUMMARIZE_URL")
-        if url:
-            with open(transcript_filename, 'r', encoding='utf-8') as f:
-                transcript = f.read()
-            response = requests.post(
-                url, json={'transcript_file': transcript, 'id': summary_id}, timeout=10)
-            if response.status_code != 202:
-                print(f"Error sending request: {response.text}")
+        with open(transcript_filename, 'r', encoding='utf-8') as f:
+            transcript = f.read()
+        response = requests.post(
+            url, json={'transcript_file': transcript, 'id': row['id']}, timeout=10)
+        if response.status_code != 202:
+            print(f"Error sending request: {response.text}")
 
 
 if __name__ == '__main__':
