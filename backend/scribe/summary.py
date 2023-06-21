@@ -8,14 +8,16 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
-from flask import current_app as app
-from supabase import Client
+from supabase import Client, create_client
 import openai
 
 TRANSCRIPTS_FOLDER = pathlib.Path(
     __file__).resolve().parent.parent/'files'/'transcripts'
 SUMMARIES_FOLDER = pathlib.Path(
     __file__).resolve().parent.parent/'files'/'summaries'
+
+supabase: Client = create_client(
+    os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 
 def send_summary(user_email: str, audio_filename: str, summary_filename: str, transcript_filename: str):
@@ -125,7 +127,6 @@ def generate_summary(transcript_filename: str, summary_id: int, approval_link: s
     summary_filename = save_file(message, SUMMARIES_FOLDER)
 
     # Save the summary in the database
-    supabase: Client = app.extensions['supabase']
     supabase.table('summaries').update(
         {'summary_file': summary_filename, 'summary': message}).eq('id', summary_id).execute()
 

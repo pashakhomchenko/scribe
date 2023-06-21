@@ -99,7 +99,7 @@ def summarize():
         return {"message": "ID not found in request body"}, 400
 
     approval_link = url_for(
-        'approve', summary_id=summary_id, _external=True)
+        'api.approve', summary_id=summary_id, _external=True)
     # Run generate_summary asynchronously
     thread = threading.Thread(target=summary.generate_summary,
                               args=(transcript_file, summary_id, approval_link))

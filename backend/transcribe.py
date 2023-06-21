@@ -15,15 +15,12 @@ TRANSCRIPTS_FOLDER = pathlib.Path(
 
 def generate_transcript(audio_filename):
     print("Generating transcript...")
+    start_time = time.time()
 
     # load audio
     audio = whisper.load_audio(audio_filename)
 
     print(f'{audio_filename} loaded')
-
-    # pad / trim it to fit 30 seconds to test
-    # audio = whisper.pad_or_trim(audio)
-    # print(f'{file.name} trimmed')
 
     # load model
     model = whisper.load_model("medium")
@@ -32,6 +29,8 @@ def generate_transcript(audio_filename):
     result = model.transcribe(audio)
 
     transcript_filename = save_file((result["text"]), TRANSCRIPTS_FOLDER)
+
+    print(f'Transcript generated in {time.time() - start_time} seconds')
 
     return transcript_filename
 
@@ -55,18 +54,14 @@ def save_file(text, directory) -> str:
 def main():
     supabase: Client = create_client(
         os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-        print("Connected to supabase")
+    print("Connected to supabase")
 
     # Fetch all the entries that require transcription from supabase
     res = supabase.table("summaries").select(
-        "*").eq("transcript_file", None).execute()['data']
-
-    if res.error:
-        print(f"Error fetching data: {res.error}")
-        return
+        "*").filter('transcript_file', 'is', 'null').execute().data
 
     for row in res:
-        if row['audio_file'] is not None:
+        if row['transcript_file'] is not None:
             continue
         audio_file = row['audio_file']
         transcript_filename = generate_transcript(audio_file)
@@ -75,10 +70,8 @@ def main():
             {'transcript_file': transcript_filename}).eq('id', row['id']).execute()
         # send api request to summarize the transcript
         url = os.getenv("SUMMARIZE_URL")
-        with open(transcript_filename, 'r', encoding='utf-8') as f:
-            transcript = f.read()
         response = requests.post(
-            url, json={'transcript_file': transcript, 'id': row['id']}, timeout=10)
+            url, json={'transcript_file': transcript_filename, 'id': row['id']}, timeout=10)
         if response.status_code != 202:
             print(f"Error sending request: {response.text}")
 
