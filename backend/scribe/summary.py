@@ -10,25 +10,29 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from supabase import Client, create_client
 import openai
+import boto3
 
 TRANSCRIPTS_FOLDER = pathlib.Path(
     __file__).resolve().parent.parent/'files'/'transcripts'
 SUMMARIES_FOLDER = pathlib.Path(
     __file__).resolve().parent.parent/'files'/'summaries'
+S3_BUCKET = "scribe-backend-files"
 
 supabase: Client = create_client(
     os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 
-def send_summary(user_email: str, audio_filename: str, summary_filename: str, transcript_filename: str):
+def send_summary(user_email: str, summary_filename: str, transcript_filename: str):
     """Send summary to user."""
     print("Sending summary...")
     text = "Hey there, \n\nPlease find the notes from your recent conversation attached. We also included the transcript in case you want to refresh your memory.\n\nThank you for using Scribe!\n\nSincerely,\nThe Scribe Team\n\nP.S. While a powerful tool, Scribe is an early-stage project, and we live for your feedback. Please take 2 minutes to let us know what worked and what didn't, so we can make Scribe better for you. Or tweet your feedback @tryscribeai."
     subject = "Scribe Summary"
     send_mail(user_email, subject, text, [
               summary_filename, transcript_filename])
-    if os.path.isfile(audio_filename):
-        os.remove(audio_filename)
+    if os.path.isfile(transcript_filename):
+        os.remove(transcript_filename)
+    if os.path.isfile(summary_filename):
+        os.remove(summary_filename)
 
 
 def generate_summary(transcript_filename: str, summary_id: int, approval_link: str):
@@ -126,20 +130,29 @@ def generate_summary(transcript_filename: str, summary_id: int, approval_link: s
     message = response.choices[0].text
     summary_filename = save_file(message, SUMMARIES_FOLDER)
 
+    # Upload the summary to S3
+    s3 = boto3.client('s3')
+    s3_filename = summary_filename.rsplit(
+        '/', 2)[1] + '/' + summary_filename.rsplit('/', 2)[2]
+    s3.upload_file(summary_filename, S3_BUCKET, s3_filename)
+
     # Save the summary in the database
     supabase.table('summaries').update(
-        {'summary_file': summary_filename, 'summary': message}).eq('id', summary_id).execute()
+        {'summary_file': s3_filename, 'summary': message}).eq('id', summary_id).execute()
 
     # Send the approval email
     send_approval_email(summary_filename, transcript_filename,
                         summary_id, approval_link)
 
+    if os.path.isfile(transcript_filename):
+        os.remove(transcript_filename)
+    if os.path.isfile(summary_filename):
+        os.remove(summary_filename)
+
     return summary_filename
 
 
 def save_file(text, directory) -> str:
-    assert directory in [TRANSCRIPTS_FOLDER, SUMMARIES_FOLDER]
-
     # generate current timestamp
     timestamp = int(time.time())
     date_string = datetime.fromtimestamp(

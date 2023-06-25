@@ -5,3 +5,4 @@ mutagen
 supabase
 python-dotenv
 gunicorn
+boto3

@@ -7,6 +7,7 @@ from flask import url_for, g, request, Blueprint, current_app as app
 from werkzeug.utils import secure_filename
 from supabase import Client
 import mutagen
+import boto3
 from . import summary
 from . import auth
 
@@ -38,7 +39,7 @@ def submit():
     if file.filename == '':
         return {"message": "No file selected"}, 400
 
-    if auth.allowed_file(file.filename):
+    if allowed_file(file.filename):
         return {"message": "Invalid file type"}, 400
     file_ext = os.path.splitext(file.filename)[1].lower()
 
@@ -55,6 +56,9 @@ def submit():
     file.save(filename)
 
     supabase: Client = app.extensions['supabase']
+    s3 = boto3.client('s3')
+    s3_filename = filename.rsplit(
+        '/', 2)[1] + '/' + filename.rsplit('/', 2)[2]
 
     # Check the length of the file
     if file_type == 'audio':
@@ -65,8 +69,10 @@ def submit():
             if os.path.isfile(filename):
                 os.remove(filename)
             return {"message": f"Audio file is too long, the length must be less than {g.subscription['max_audio_length']} minutes"}, 400
+        s3.upload_file(Filename=filename,
+                       Bucket=app.config["S3_BUCKET"], Key=s3_filename)
         data, count = supabase.table('summaries').insert(
-            {'audio_file': filename, 'user_email': g.user.email}).execute()
+            {'audio_file': s3_filename, 'user_email': g.user.email}).execute()
 
     # Check the size of text file
     if file_type == 'text':
@@ -75,13 +81,17 @@ def submit():
             if os.path.isfile(filename):
                 os.remove(filename)
             return {"message": f"Text file is too big, the size must be less than {g.subscription['max_audio_length']} KB (1 minute of conversation is approximately 1KB in plain text file)"}, 400
+        s3.upload_file(Filename=filename,
+                       Bucket=app.config["S3_BUCKET"], Key=s3_filename)
         data, count = supabase.table('summaries').insert(
-            {'transcript_file': filename, 'user_email': g.user.email}).execute()
-        transcript_file = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            {'transcript_file': s3_filename, 'user_email': g.user.email}).execute()
         summary_id = data[0]['id']
         thread = threading.Thread(
-            target=summarize, args=(transcript_file, summary_id))
+            target=summarize, args=(s3_filename, summary_id))
         thread.start()
+
+    if os.path.isfile(filename):
+        os.remove(filename)
 
     # Decrease user credits
     auth.decrease_credits(g.user.id)
@@ -98,11 +108,17 @@ def summarize():
     if not summary_id:
         return {"message": "ID not found in request body"}, 400
 
+    s3 = boto3.client('s3')
+    download_path = os.path.join(
+        app.config['TRANSCRIPTS_FOLDER'], transcript_file.split('/')[-1])
+    s3.download_file(Bucket=app.config["S3_BUCKET"],
+                     Key=transcript_file, Filename=download_path)
+
     approval_link = url_for(
         'api.approve', summary_id=summary_id, _external=True)
     # Run generate_summary asynchronously
     thread = threading.Thread(target=summary.generate_summary,
-                              args=(transcript_file, summary_id, approval_link))
+                              args=(download_path, summary_id, approval_link))
     thread.start()
 
     # Return a success message to the client
@@ -113,9 +129,26 @@ def summarize():
 def approve(summary_id):
     """Send summary to the user."""
     supabase: Client = app.extensions['supabase']
-    res = supabase.table('summaries').select('user_email', 'audio_file',
+    res = supabase.table('summaries').select('user_email',
                                              'summary_file', 'transcript_file').eq('id', summary_id).execute()['data'][0]
+
+    s3 = boto3.client('s3')
+    summary_path = os.path.join(
+        app.config['SUMMARIES_FOLDER'], res['summary_file'].split('/')[-1])
+    transcript_path = os.path.join(
+        app.config['TRANSCRIPTS_FOLDER'], res['transcript_file'].split('/')[-1])
+    s3.download_file(
+        Bucket=app.config["S3_BUCKET"], Key=res['summary_file'], Filename=summary_path)
+    s3.download_file(Bucket=app.config["S3_BUCKET"],
+                     Key=res['transcript_file'], Filename=transcript_path)
+
     thread = threading.Thread(target=summary.send_summary,
-                              args=(res['user_email'], res['audio_file'], res['summary_file'], res['transcript_file']))
+                              args=(res['user_email'], summary_path, transcript_path))
     thread.start()
     return {"message": "Summary approved"}, 200
+
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in (
+               app.config['AUDIO_EXTENSIONS'], app.config['TEXT_EXTENSIONS'])

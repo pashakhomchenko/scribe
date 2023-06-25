@@ -86,9 +86,3 @@ def decrease_credits(user_id):
         users_credits = subscription['credits'] - 1
         supabase.table('subscriptions').update(
             {'credits': users_credits}).eq('user_id', user_id).execute()
-
-
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in (
-               app.config['AUDIO_EXTENSIONS'], app.config['TEXT_EXTENSIONS'])
