@@ -143,7 +143,7 @@ def summarize():
 def approve(summary_id):
     """Send summary to the user."""
     supabase: Client = app.extensions['supabase']
-    res = supabase.table('summaries').select('user_email',
+    res = supabase.table('summaries').select('id', 'user_email',
                                              'summary_file', 'transcript_file').eq('id', summary_id).execute().data[0]
 
     s3 = boto3.client('s3')
@@ -157,7 +157,7 @@ def approve(summary_id):
                      Key=res['transcript_file'], Filename=transcript_path)
 
     thread = threading.Thread(target=summary.send_summary,
-                              args=(res['user_email'], summary_path, transcript_path))
+                              args=(res['id'], res['user_email'], summary_path, transcript_path))
     thread.start()
     return {"message": "Summary approved"}, 200
 

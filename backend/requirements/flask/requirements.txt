@@ -8,3 +8,4 @@ gunicorn
 boto3
 tiktoken
 tenacity
+pytz
