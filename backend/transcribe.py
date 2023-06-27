@@ -3,17 +3,19 @@ import os
 import time
 import requests
 from datetime import datetime
+import argparse
 import pathlib
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import whisper
+import boto3
 
 load_dotenv()
-TRANSCRIPTS_FOLDER = pathlib.Path(
-    __file__).resolve().parent/"files"/"transcripts"
+DOWNLOAD_FOLDER = pathlib.Path(__file__).resolve().parent
+S3_BUCKET = "scribe-backend-files"
 
 
-def generate_transcript(audio_filename):
+def generate_transcript(audio_filename, user_email):
     print("Generating transcript...")
     start_time = time.time()
 
@@ -28,20 +30,21 @@ def generate_transcript(audio_filename):
     # transcribe audio
     result = model.transcribe(audio)
 
-    transcript_filename = save_file((result["text"]), TRANSCRIPTS_FOLDER)
+    transcript_filename = save_file(
+        (result["text"]), DOWNLOAD_FOLDER, user_email)
 
     print(f'Transcript generated in {time.time() - start_time} seconds')
 
     return transcript_filename
 
 
-def save_file(text, directory) -> str:
+def save_file(text, directory, user_email) -> str:
     # generate current timestamp
     timestamp = int(time.time())
     date_string = datetime.fromtimestamp(
         timestamp).strftime('%Y-%m-%d_%H-%M-%S')
 
-    filename = f'Transcript_{date_string}.txt'
+    filename = f'Transcript_{user_email}_{date_string}.txt'
 
     # save transcript in the "transcripts" sub-folder
     with open(f'{directory}/{filename}', 'w', encoding="UTF-8") as f:
@@ -52,28 +55,53 @@ def save_file(text, directory) -> str:
 
 
 def main():
+    # Parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('summary_id')
+    summary_id = parser.parse_args().summary_id
+
+    # Connect to supabase
     supabase: Client = create_client(
         os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
     print("Connected to supabase")
 
-    # Fetch all the entries that require transcription from supabase
+    # Fetch summary_id entry from supabase
     res = supabase.table("summaries").select(
-        "*").filter('transcript_file', 'is', 'null').execute().data
+        "*").eq('id', summary_id).execute().data[0]
 
-    for row in res:
-        if row['transcript_file'] is not None:
-            continue
-        audio_file = row['audio_file']
-        transcript_filename = generate_transcript(audio_file)
-        # add transcript file to supabase
-        supabase.table('summaries').update(
-            {'transcript_file': transcript_filename}).eq('id', row['id']).execute()
-        # send api request to summarize the transcript
-        url = os.getenv("SUMMARIZE_URL")
-        response = requests.post(
-            url, json={'transcript_file': transcript_filename, 'id': row['id']}, timeout=10)
-        if response.status_code != 202:
-            print(f"Error sending request: {response.text}")
+    # Check if transcript file already exists
+    if res['transcript_file'] is not None:
+        return
+    audio_file = res['audio_file']
+
+    # Download audio file from S3
+    s3 = boto3.client('s3')
+    download_path = f'{DOWNLOAD_FOLDER}/{audio_file.split("/")[-1]}'
+    s3.download_file(Bucket=S3_BUCKET,
+                     Key=audio_file, Filename=download_path)
+
+    # Generate transcript
+    transcript_filename = generate_transcript(download_path, res['user_email'])
+
+    # Upload transcript to S3
+    s3_filename = f'transcripts/{transcript_filename.split("/")[-1]}'
+    s3.upload_file(Filename=transcript_filename,
+                   Bucket=S3_BUCKET, Key=s3_filename)
+
+    # add transcript file to supabase
+    supabase.table('summaries').update(
+        {'transcript_file': s3_filename}).eq('id', res['id']).execute()
+
+    # send api request to summarize the transcript
+    url = os.getenv("SUMMARIZE_URL")
+    response = requests.post(
+        url, json={'transcript_file': s3_filename, 'id': res['id']}, timeout=10)
+    if response.status_code != 202:
+        print(f"Error sending request: {response.text}")
+
+    # delete audio and transcript file
+    os.remove(download_path)
+    os.remove(transcript_filename)
 
 
 if __name__ == '__main__':

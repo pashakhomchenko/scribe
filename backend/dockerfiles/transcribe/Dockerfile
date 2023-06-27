@@ -7,5 +7,3 @@ COPY requirements/transcribe/requirements.txt requirements.txt
 RUN --mount=type=cache,target=/root/.cache \
     pip install --upgrade pip && pip install -r requirements.txt
 COPY transcribe.py transcribe.py
-# Run the command to start the application
-CMD ["python", "transcribe.py"]

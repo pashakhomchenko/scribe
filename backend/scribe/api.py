@@ -4,7 +4,6 @@ import time
 import threading
 from datetime import datetime
 from flask import url_for, g, request, Blueprint, current_app as app
-from werkzeug.utils import secure_filename
 from supabase import Client
 import mutagen
 import boto3
@@ -43,16 +42,15 @@ def submit():
         return {"message": "Invalid file type"}, 400
     file_ext = os.path.splitext(file.filename)[1].lower()
 
-    file_type = 'audio' if file_ext in app.config['AUDIO_EXTENSIONS'] else 'text'
-    file_folder = app.config['AUDIO_UPLOAD_FOLDER'] if file_type == 'audio' else app.config['TEXT_UPLOAD_FOLDER']
+    file_type = 'Audio' if file_ext in app.config['AUDIO_EXTENSIONS'] else 'Transcript'
+    file_folder = app.config['AUDIO_UPLOAD_FOLDER'] if file_type == 'Audio' else app.config['TEXT_UPLOAD_FOLDER']
 
     # TODO: Check if upload file are actually audio or text files
 
     date_string = datetime.fromtimestamp(
         int(time.time())).strftime('%Y-%m-%d_%H-%M-%S')
-    filename_str = f'{g.user.email}_{date_string}{file_ext}'
-    filename = secure_filename(filename_str)
-    filename = os.path.join(file_folder, filename)
+    filename_str = f'{file_type}_{g.user.email}_{date_string}{file_ext}'
+    filename = os.path.join(file_folder, filename_str)
     file.save(filename)
 
     supabase: Client = app.extensions['supabase']
@@ -61,37 +59,50 @@ def submit():
         '/', 2)[1] + '/' + filename.rsplit('/', 2)[2]
 
     # Check the length of the file
-    if file_type == 'audio':
+    if file_type == 'Audio':
         audio = mutagen.File(filename)
         if audio is None:
             return {"message": "Invalid audio file"}, 400
         if audio.info.length > 60 * g.subscription["max_audio_length"]:
-            if os.path.isfile(filename):
-                os.remove(filename)
+            os.remove(filename)
             return {"message": f"Audio file is too long, the length must be less than {g.subscription['max_audio_length']} minutes"}, 400
         s3.upload_file(Filename=filename,
                        Bucket=app.config["S3_BUCKET"], Key=s3_filename)
         data, count = supabase.table('summaries').insert(
             {'audio_file': s3_filename, 'user_email': g.user.email}).execute()
+        summary_id = data[1][0]['id']
+        os.remove(filename)
+
+        # Push the transcription job to the queue
+        batch = boto3.client('batch', region_name='us-east-1')
+        batch.submit_job(
+            jobName=f'transcribe_{summary_id}',
+            jobQueue="scribe-job-queue",
+            jobDefinition="scribe-job-definition",
+            containerOverrides={
+                'command': [
+                    'python3',
+                    'transcribe.py',
+                    summary_id,
+                ]
+            }
+        )
 
     # Check the size of text file
-    if file_type == 'text':
+    if file_type == 'Transcript':
         # 1 minute of conversation is about 1000 bytes
         if os.path.getsize(filename) > 1000 * g.subscription["max_audio_length"]:
-            if os.path.isfile(filename):
-                os.remove(filename)
+            os.remove(filename)
             return {"message": f"Text file is too big, the size must be less than {g.subscription['max_audio_length']} KB (1 minute of conversation is approximately 1KB in plain text file)"}, 400
         s3.upload_file(Filename=filename,
                        Bucket=app.config["S3_BUCKET"], Key=s3_filename)
         data, count = supabase.table('summaries').insert(
             {'transcript_file': s3_filename, 'user_email': g.user.email}).execute()
-        summary_id = data[0]['id']
+        summary_id = data[1][0]['id']
+        os.remove(filename)
         thread = threading.Thread(
             target=summarize, args=(s3_filename, summary_id))
         thread.start()
-
-    if os.path.isfile(filename):
-        os.remove(filename)
 
     # Decrease user credits
     auth.decrease_credits(g.user.id)
