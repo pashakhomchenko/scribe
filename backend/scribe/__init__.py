@@ -5,10 +5,6 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-from . import api
-from . import config
-from . import auth
-
 
 def create_app(test_config=None):
     """Create and configure the app"""
@@ -20,8 +16,6 @@ def create_app(test_config=None):
     )
 
     supabase_init_app(app)
-
-    app.config.from_object(config)
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -35,14 +29,22 @@ def create_app(test_config=None):
     except OSError:
         pass
 
-    app.register_blueprint(api.bp)
-    app.register_error_handler(auth.AuthError, auth.handle_auth_error)
+    with app.app_context():
+        from . import config
+        app.config.from_object(config)
+
+        from . import api
+        from . import auth
+
+        app.register_blueprint(api.bp)
+        app.register_error_handler(auth.AuthError, auth.handle_auth_error)
 
     CORS(app)
     return app
 
 
 def supabase_init_app(app: Flask) -> Client:
+    """Initialize Supabase client."""
     supabase: Client = create_client(
         os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
     app.extensions["supabase"] = supabase

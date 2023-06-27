@@ -99,9 +99,11 @@ def submit():
         data, count = supabase.table('summaries').insert(
             {'transcript_file': s3_filename, 'user_email': g.user.email}).execute()
         summary_id = data[1][0]['id']
-        os.remove(filename)
-        thread = threading.Thread(
-            target=summarize, args=(s3_filename, summary_id))
+        approval_link = url_for(
+            'api.approve', summary_id=summary_id, _external=True)
+        # Run generate_summary asynchronously
+        thread = threading.Thread(target=summary.generate_summary,
+                                  args=(filename, summary_id, approval_link))
         thread.start()
 
     # Decrease user credits
@@ -112,6 +114,7 @@ def submit():
 
 @bp.route("/summarize/", methods=['POST'])
 def summarize():
+    """Create summary from the transcript file."""
     transcript_file = request.json.get('transcript_file')
     if not transcript_file:
         return {"message": "Transcript file not found in request body"}, 400
@@ -141,7 +144,7 @@ def approve(summary_id):
     """Send summary to the user."""
     supabase: Client = app.extensions['supabase']
     res = supabase.table('summaries').select('user_email',
-                                             'summary_file', 'transcript_file').eq('id', summary_id).execute()['data'][0]
+                                             'summary_file', 'transcript_file').eq('id', summary_id).execute().data[0]
 
     s3 = boto3.client('s3')
     summary_path = os.path.join(

@@ -8,24 +8,22 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
-from supabase import Client, create_client
 import openai
 import boto3
 import tiktoken
+from supabase import Client
+from tenacity import retry, stop_after_attempt, wait_fixed
+from flask import current_app as app
 
-TRANSCRIPTS_FOLDER = pathlib.Path(
-    __file__).resolve().parent.parent/'files'/'transcripts'
-SUMMARIES_FOLDER = pathlib.Path(
-    __file__).resolve().parent.parent/'files'/'summaries'
-S3_BUCKET = "scribe-backend-files"
-
-supabase: Client = create_client(
-    os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+# The reason we declare this on the top level is that we only have access to the app context during intialization
+supabase: Client = app.extensions['supabase']
+S3_BUCKET = app.config['S3_BUCKET']
+SUMMARIES_FOLDER = app.config['SUMMARIES_FOLDER']
 
 
 def send_summary(user_email: str, summary_filename: str, transcript_filename: str):
     """Send summary to user."""
-    print("Sending summary...")
+    print("Sending summary...", flush=True)
     text = "Hey there, \n\nPlease find the notes from your recent conversation attached. We also included the transcript in case you want to refresh your memory.\n\nThank you for using Scribe!\n\nSincerely,\nThe Scribe Team\n\nP.S. While a powerful tool, Scribe is an early-stage project, and we live for your feedback. Please take 2 minutes to let us know what worked and what didn't, so we can make Scribe better for you. Or tweet your feedback @tryscribeai."
     subject = "Scribe Summary"
     send_mail(user_email, subject, text, [
@@ -35,7 +33,7 @@ def send_summary(user_email: str, summary_filename: str, transcript_filename: st
 
 
 def generate_summary(transcript_filename: str, summary_id: int, approval_link: str):
-    print("Generating summary...")
+    print("Generating summary...", flush=True)
     # Set API key, prompt, and model
     openai.api_key = os.getenv("OPENAI_API_KEY")
     prompt_chunk_summary = os.getenv("PROMPT_CHUNK_SUMMARY")
@@ -44,8 +42,13 @@ def generate_summary(transcript_filename: str, summary_id: int, approval_link: s
     model = "gpt-3.5-turbo-16k"
     enc = tiktoken.encoding_for_model(model)
     # full context lendth is 16384 but we need to account for the prompt and completion
-    context_length = 15384
-    max_tokens = 800  # account for the prompt
+    context_length = 16384
+    # Prompt length and 20 tokens for the system messages
+    chunk_prompt_length = len(enc.encode(prompt_chunk_summary)) + 20
+    final_prompt_length = len(enc.encode(prompt_final_summary)) + 20
+    prompt_length = max(chunk_prompt_length, final_prompt_length)
+    # Give at least 1000 tokens for the summary
+    max_tokens = context_length - prompt_length - 1000
     overflow = False
     summary = ""
 
@@ -58,42 +61,35 @@ def generate_summary(transcript_filename: str, summary_id: int, approval_link: s
     num_tokens = len(enc.encode(transcript))
 
     # Check if the transcript can be summarized in one chunk
-    if num_tokens <= context_length:
+    if num_tokens <= max_tokens:
         # Send the transcript to the OpenAI API
-        response = openai.ChatCompletion.create(
-            model=model,
-            messages=[{"role": "system", "content": prompt_chunk_summary}, {
-                "role": "user", "content": transcript}],
-            max_tokens=max_tokens,
-        )
-        if response['choices'][0]['finish_reason'] == 'length':
-            overflow = True
-        summary = response['choices'][0]['message']['content']
+        completion_length = context_length - chunk_prompt_length - num_tokens
+        summary = get_summary(model, prompt_chunk_summary,
+                              transcript, completion_length, overflow)
 
-    if overflow or num_tokens > context_length:
+    if overflow or num_tokens > max_tokens:
+        overflow = False
         transcript_chunks = []
         split_transcript(transcript, context_length, transcript_chunks, enc)
         summary_chunks = []
         for chunk in transcript_chunks:
-            response = openai.ChatCompletion.create(
-                model=model,
-                messages=[{"role": "system", "content": prompt_chunk_summary}, {
-                    "role": "user", "content": chunk}],
-                max_tokens=max_tokens,
-            )
-            summary_chunks.append(response['choices'][0]['message']['content'])
+            completion_length = context_length - \
+                chunk_prompt_length - len(enc.encode(chunk))
+            summary_chunk = get_summary(
+                model, prompt_chunk_summary, chunk, completion_length, overflow)
+            summary_chunks.append(summary_chunk)
         # Create master summary
-        response = openai.ChatCompletion.create(
-            model=model,
-            messages=[{"role": "system", "content": prompt_final_summary}, {
-                "role": "user", "content": ' '.join(summary_chunks) + "Master summary: "}],
-        )
-        summary = response['choices'][0]['message']['content']
+        summary_chunks = ' '.join(summary_chunks) + " Master summary: "
+        completion_length = context_length - \
+            final_prompt_length - len(enc.encode(summary_chunks))
+        summary = get_summary(
+            model, prompt_final_summary, summary_chunks, completion_length, overflow)
 
     # Save the summary to a file
     user_email = supabase.table('summaries').select("user_email").eq(
         'id', summary_id).execute().data[0]['user_email']
-    summary_filename = save_file(summary, SUMMARIES_FOLDER, user_email)
+    summary_filename = save_file(
+        summary, SUMMARIES_FOLDER, user_email)
 
     # Upload the summary to S3
     s3 = boto3.client('s3')
@@ -113,6 +109,19 @@ def generate_summary(transcript_filename: str, summary_id: int, approval_link: s
     os.remove(summary_filename)
 
     return summary_filename
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(60))  # handle rate limiting
+def get_summary(model: str, prompt: str, text: str, completion_length: int, overflow: bool) -> str:
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=[{"role": "system", "content": prompt}, {
+            "role": "user", "content": text}],
+        max_tokens=completion_length,
+    )
+    if response['choices'][0]['finish_reason'] == 'length':
+        overflow = True
+    return response['choices'][0]['message']['content']
 
 
 def split_transcript(transcript: str, context_length: int, transcript_chunks: list, enc):
@@ -148,7 +157,7 @@ def save_file(text, directory, user_email) -> str:
 
 def send_approval_email(summary_filename: str, transcript_filename: str, summary_id: int, approval_link: str):
     """Send email with summary for QA."""
-    print("Sending email with summary for approval...")
+    print("Sending email with summary for approval...", flush=True)
     text = f'Please review the summary below and click the link to approve it.\n\n{approval_link}'
     subject = 'Generated summary for approval'
     send_mail(None, subject, text, [summary_filename, transcript_filename])
