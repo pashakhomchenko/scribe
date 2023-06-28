@@ -37,6 +37,8 @@ def submit():
 
     if file.filename == '':
         return {"message": "No file selected"}, 400
+    
+    return {"message": "File received"}, 202
 
     if allowed_file(file.filename):
         return {"message": "Invalid file type"}, 400
