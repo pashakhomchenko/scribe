@@ -117,16 +117,16 @@ export default function GetSummary() {
       return;
     }
 
-    if (response.status === 500) {
-      setError('Something went wrong. Please try again.');
-      setLoading(false);
-      return;
-    }
-
     if (response.status === 413) {
       setError(
         'Your file is too large. Please upload a file less than 100 MB.'
       );
+      setLoading(false);
+      return;
+    }
+
+    if (response.status !== 202) {
+      setError('Something went wrong. Please try again.');
       setLoading(false);
       return;
     }
