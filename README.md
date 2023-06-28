@@ -6,7 +6,7 @@ This project depends on two .env files (one for each folder) which you need to f
 
 ## Backend
 We use Docker for development, so all you need to do is to make sure that you have Docker installed and run the following command:
-`docker compose -f docker-compose.all.dev.yml up -d --build`
+`docker compose -f docker-compose.dev.yml up -d --build`
 
 ## Frontend
 To install the frontend dependencies, go to the frontend directory and run the following command:
