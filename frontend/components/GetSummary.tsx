@@ -89,7 +89,7 @@ export default function GetSummary() {
     formData.append('file', fileInput.current?.getFile().file as Blob);
 
     // API endpoint where we send form data.
-    const endpoint = `api/submit/`;
+    const endpoint = `/api/submit/`;
 
     // Get the user's JWT token from Supabase.
     if (!accessToken) {
