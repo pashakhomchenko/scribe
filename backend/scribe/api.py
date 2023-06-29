@@ -103,7 +103,7 @@ def submit():
             'api.approve', summary_id=summary_id, _external=True)
         # Run generate_summary asynchronously
         thread = threading.Thread(target=summary.generate_summary,
-                                  args=(filename, summary_id, approval_link))
+                                  args=(summary_id, filename, approval_link))
         thread.start()
 
     # Decrease user credits
@@ -132,7 +132,7 @@ def summarize():
         'api.approve', summary_id=summary_id, _external=True)
     # Run generate_summary asynchronously
     thread = threading.Thread(target=summary.generate_summary,
-                              args=(download_path, summary_id, approval_link))
+                              args=(summary_id, download_path, approval_link))
     thread.start()
 
     # Return a success message to the client
