@@ -183,4 +183,4 @@ next-env.d.ts
 dump.rdb
 
 # VSCode
-**/.vscode
+**/.vscode/*
