@@ -181,3 +181,6 @@ next-env.d.ts
 
 # redis
 dump.rdb
+
+# VSCode
+**/.vscode
