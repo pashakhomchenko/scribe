@@ -41,7 +41,7 @@ def handle_exceptions(func):
 @handle_exceptions
 def send_summary(summary_id: str, user_email: str, summary_filename: str, transcript_filename: str):
     """Send summary to user."""
-    print("Sending summary...", flush=True)
+    print(f"Sending summary for summary_id: {summary_id}", flush=True)
     text = "Hey there, \n\nPlease find the notes from your recent conversation attached. We also included the transcript in case you want to refresh your memory.\n\nThank you for using Scribe!\n\nSincerely,\nThe Scribe Team\n\nP.S. While a powerful tool, Scribe is an early-stage project, and we live for your feedback. Please take 2 minutes to let us know what worked and what didn't, so we can make Scribe better for you. Or tweet your feedback @tryscribeai."
     subject = "Scribe Summary"
     send_mail(user_email, subject, text, [
@@ -56,7 +56,8 @@ def send_summary(summary_id: str, user_email: str, summary_filename: str, transc
 @handle_exceptions
 def generate_summary(summary_id: int, transcript_filename: str, approval_link: str):
     """Generate a summary given a transcript."""
-    print("Generating summary...", flush=True)
+    print(f"Generating summary for summary_id: {summary_id}", flush=True)
+    start_time = time.time()
     # Set API key, prompt, and model
     openai.api_key = os.getenv("OPENAI_API_KEY")
     prompt_summary = os.getenv("PROMPT_SUMMARY")
@@ -107,7 +108,9 @@ def generate_summary(summary_id: int, transcript_filename: str, approval_link: s
             summary_chunk = get_summary(model, prompt_chunk_summary, chunk)
             summary_chunks.append(summary_chunk)
         # Create master summary
-        summary_chunks = '\n'.join(summary_chunks) + " Master summary: "
+        summary_chunks = '\n'.join(summary_chunks) + "\nMaster summary: "
+        print(prompt_final_summary, flush=True)
+        print(summary_chunks, flush=True)
         summary = get_summary(model, prompt_final_summary, summary_chunks)
 
     if summary == "":
@@ -134,6 +137,8 @@ def generate_summary(summary_id: int, transcript_filename: str, approval_link: s
 
     os.remove(transcript_filename)
     os.remove(summary_filename)
+
+    print(f"Time taken: {time.time() - start_time}", flush=True)
 
 
 @retry(stop=stop_after_attempt(2), wait=wait_fixed(60))  # handle rate limiting
@@ -201,7 +206,6 @@ def save_summary(text, directory, user_email) -> str:
 
 def send_approval_email(summary_filename: str, transcript_filename: str, approval_link: str):
     """Send email with summary for QA."""
-    print("Sending email with summary for approval...", flush=True)
     text = f'Please review the summary below and click the link to approve it.\n\n{approval_link}'
     subject = 'Generated summary for approval'
     send_mail(None, subject, text, [summary_filename, transcript_filename])

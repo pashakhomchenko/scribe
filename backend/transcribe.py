@@ -1,10 +1,12 @@
 """Celery tasks."""
 import os
 import time
-import requests
-from datetime import datetime
 import argparse
 import pathlib
+import traceback
+from functools import wraps
+from datetime import datetime
+import requests
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import whisper
@@ -13,10 +15,30 @@ import boto3
 load_dotenv()
 DOWNLOAD_FOLDER = pathlib.Path(__file__).resolve().parent
 S3_BUCKET = "scribe-backend-files"
+supabase: Client = create_client(
+    os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+
+# Parse arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('summary_id')
+summary_id = parser.parse_args().summary_id
+
+
+def handle_exceptions(func):
+    """Catch any exceptions and put the traceback into the database."""
+    @wraps(func)
+    def decorated(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception:
+            trace = traceback.format_exc()
+            print(trace, flush=True)
+            supabase.table('summaries').update(
+                {'status': f'Error: {trace}'}).eq('id', summary_id).execute()
+    return decorated
 
 
 def generate_transcript(audio_filename, user_email):
-    print("Generating transcript...")
     start_time = time.time()
 
     # load audio
@@ -30,7 +52,7 @@ def generate_transcript(audio_filename, user_email):
     # transcribe audio
     result = model.transcribe(audio)
 
-    transcript_filename = save_file(
+    transcript_filename = save_transcript(
         (result["text"]), DOWNLOAD_FOLDER, user_email)
 
     print(f'Transcript generated in {time.time() - start_time} seconds')
@@ -38,7 +60,7 @@ def generate_transcript(audio_filename, user_email):
     return transcript_filename
 
 
-def save_file(text, directory, user_email) -> str:
+def save_transcript(text, directory, user_email) -> str:
     # generate current timestamp
     timestamp = int(time.time())
     date_string = datetime.fromtimestamp(
@@ -54,16 +76,13 @@ def save_file(text, directory, user_email) -> str:
     return f'{directory}/{filename}'
 
 
+@handle_exceptions
 def main():
-    # Parse arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('summary_id')
-    summary_id = parser.parse_args().summary_id
+    # Check if summary_id is provided
+    if summary_id is None:
+        raise Exception("No summary_id provided")
 
-    # Connect to supabase
-    supabase: Client = create_client(
-        os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-    print("Connected to supabase")
+    print(f"Generating transcript for summary_id: {summary_id}")
 
     # Fetch summary_id entry from supabase
     res = supabase.table("summaries").select(
@@ -97,7 +116,7 @@ def main():
     response = requests.post(
         url, json={'transcript_file': s3_filename, 'id': res['id']}, timeout=10)
     if response.status_code != 202:
-        print(f"Error sending request: {response.text}")
+        raise Exception(f"Error sending request: {response.text}")
 
     # delete audio and transcript file
     os.remove(download_path)
