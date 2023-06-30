@@ -146,7 +146,7 @@ export default function GetSummary() {
   };
 
   return (
-    <div className="flex flex-col px-8 justify-center my-12">
+    <div className="flex flex-col p-8 justify-center min-h-screen">
       <Banner />
       <div className="h-[350px]">
         {success && (
@@ -209,10 +209,10 @@ export default function GetSummary() {
           </div>
         )}
         {loading && (
-          <div className="flex justify-center flex-col items-center gap-8">
-            <div>
+          <div className="flex justify-center flex-col items-center gap-8 mt-6">
+            <Text fontSize={'lg'}>
               Uploading the file, this might take up to 5 minutes, hang tight...
-            </div>
+            </Text>
             <Progress size="xs" width={'md'} isIndeterminate />{' '}
           </div>
         )}
@@ -227,59 +227,6 @@ export default function GetSummary() {
               labelIdle='Drag & Drop the recording of your meeting or <span class="filepond--label-action">Browse</span> <br/> We support audio, video and text files up to 300MB.'
               credits={false}
             />
-            {/*   <div className="">
-              <label
-                htmlFor="dropzone-file"
-                className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600"
-              >
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <svg
-                    aria-hidden="true"
-                    className="w-10 h-10 mb-3 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    ></path>
-                  </svg>
-                  {isSelected ? (
-                    <>
-                      <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-                        <span className="font-semibold">File choosen</span>
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {selectedFile?.name}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-                        <span className="font-semibold">Click to upload</span>{' '}
-                        or drag and drop
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        MP3, MP4, TXT, FLAC, M4A
-                      </p>
-                    </>
-                  )}
-                </div>
-                <input
-                  id="dropzone-file"
-                  type="file"
-                  className="hidden"
-                  accept=".mp3,.mp4,.txt,.flac,.m4a"
-                  ref={fileInput}
-                  onChange={fileInputchangeHandler}
-                  required
-                />
-              </label>
-            </div> */}
             <div className="flex justify-center pt-8">
               <Button
                 type="submit"

@@ -3,7 +3,7 @@ import { Text, Link } from '@chakra-ui/react';
 
 export default function Footer() {
   return (
-    <footer className="flex justify-center items-center px-6 gap-8 py-8">
+    <footer className="flex flex-col justify-center items-center px-6 gap-8 py-8 md:flex-row">
       <Link as={NextLink} href="mailto:tryscribe@gmail.com">
         Contact
       </Link>
