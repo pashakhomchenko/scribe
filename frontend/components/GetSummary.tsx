@@ -209,7 +209,10 @@ export default function GetSummary() {
           </div>
         )}
         {loading && (
-          <div className="flex justify-center">
+          <div className="flex justify-center flex-col items-center gap-8">
+            <div>
+              Uploading the file, this might take up to 5 minutes, hang tight...
+            </div>
             <Progress size="xs" width={'md'} isIndeterminate />{' '}
           </div>
         )}
