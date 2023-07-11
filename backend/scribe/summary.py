@@ -48,7 +48,7 @@ def send_summary(summary_id: str, user_email: str, summary_filename: str, transc
               summary_filename, transcript_filename])
     update_time(summary_id)
     supabase.table('summaries').update(
-        {'Status': "Success"}).eq('id', summary_id).execute()
+        {'status': "Success"}).eq('id', summary_id).execute()
     os.remove(transcript_filename)
     os.remove(summary_filename)
 
