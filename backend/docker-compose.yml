@@ -3,7 +3,7 @@ version: '3.8'
 services:
   web:
     image: pashakhomchenko/scribe-flask
-    command: gunicorn -w 5 --bind 0.0.0.0:80 app:app
+    command: gunicorn -w 3 --bind 0.0.0.0:80 app:app
     ports:
       - "80:80"
     env_file:
