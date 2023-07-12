@@ -83,7 +83,7 @@ export default function Pricing({ products }: Props) {
     );
 
   return (
-    <section className="px-6 py-20 min-h-screen" id="pricing">
+    <section className="px-6 py-24 min-h-screen" id="pricing">
       <div className="flex flex-col sm:align-center justify-center">
         <Heading size={'2xl'} textAlign={'center'}>
           Pricing Plans
