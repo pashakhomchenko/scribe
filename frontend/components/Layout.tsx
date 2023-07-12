@@ -14,7 +14,7 @@ export default function Layout({ children, meta: pageMeta }: Props) {
     title: 'Scribe',
     description: 'Intelligent summaries for your meetings. In one click.',
     cardImage: '/scribe_banner.png',
-    url: 'https://tryscribe.world',
+    url: 'https://tryscribe.world/',
     ...pageMeta
   };
 
@@ -34,11 +34,11 @@ export default function Layout({ children, meta: pageMeta }: Props) {
         <meta property="og:description" content={meta.description} />
         <meta property="og:title" content={meta.title} />
         <meta property="og:image" content={meta.cardImage} />
-        {/* <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:site" content="@tryscribeai" />
         <meta name="twitter:title" content={meta.title} />
         <meta name="twitter:description" content={meta.description} />
-        <meta name="twitter:image" content={meta.cardImage} /> */}
+        <meta name="twitter:image" content={meta.cardImage} />
       </Head>
       <main>{children}</main>
     </>
