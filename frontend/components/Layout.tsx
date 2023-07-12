@@ -1,13 +1,8 @@
 import { PropsWithChildren } from 'react';
 import Head from 'next/head';
-import Script from 'next/script';
 import { useRouter } from 'next/router';
 
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-
 import { PageMeta } from '../types';
-import { getURL } from '@/utils/helpers';
 
 interface Props extends PropsWithChildren {
   meta?: PageMeta;
@@ -39,11 +34,11 @@ export default function Layout({ children, meta: pageMeta }: Props) {
         <meta property="og:description" content={meta.description} />
         <meta property="og:title" content={meta.title} />
         <meta property="og:image" content={meta.cardImage} />
-        <meta name="twitter:card" content="summary_large_image" />
+        {/* <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:site" content="@tryscribeai" />
         <meta name="twitter:title" content={meta.title} />
         <meta name="twitter:description" content={meta.description} />
-        <meta name="twitter:image" content={meta.cardImage} />
+        <meta name="twitter:image" content={meta.cardImage} /> */}
       </Head>
       <main>{children}</main>
     </>
