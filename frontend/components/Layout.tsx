@@ -39,6 +39,8 @@ export default function Layout({ children, meta: pageMeta }: Props) {
         <meta property="og:title" content={meta.title} />
         <meta property="og:image" content={meta.cardImage} />
         <meta name="twitter:title" content={meta.title} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content={getURL()} />
         <meta name="twitter:description" content={meta.description} />
         <meta name="twitter:image" content={meta.cardImage} />
       </Head>
