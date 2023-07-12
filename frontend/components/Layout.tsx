@@ -13,7 +13,7 @@ export default function Layout({ children, meta: pageMeta }: Props) {
   const meta = {
     title: 'Scribe',
     description: 'Intelligent summaries for your meetings. In one click.',
-    cardImage: '/scribe_banner.png',
+    cardImage: 'https://www.tryscribe.world/scribe_banner.png',
     url: 'https://tryscribe.world/',
     ...pageMeta
   };
