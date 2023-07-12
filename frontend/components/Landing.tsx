@@ -31,7 +31,7 @@ export default function Landing({
             opacity: 0.8
           }}
         >
-          {user ? 'Go to the app' : 'Get your AI summary now'}
+          {user ? 'Go to the app' : 'Get your summary now'}
         </Button>
       </section>
       <div>
