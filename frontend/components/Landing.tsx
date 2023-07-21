@@ -34,6 +34,17 @@ export default function Landing({
           {user ? 'Go to the app' : 'Get your summary now'}
         </Button>
       </section>
+      <section className="flex flex-col gap-12 items-center justify-center px-10 py-6">
+        <Heading as="h2" size="2xl" textAlign="center">
+          How does it work?
+        </Heading>
+        <div className="flex items-center justify-center">
+          <video width="1920" height="1080" controls>
+            <source src="/demo.mp4" type="video/mp4" />
+            Your browser does not support video.
+          </video>
+        </div>
+      </section>
       <div>
         <Pricing products={products} />
       </div>
