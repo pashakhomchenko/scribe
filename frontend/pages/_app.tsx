@@ -5,6 +5,7 @@ import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { ChakraProvider } from '@chakra-ui/react';
 import theme from '@/utils/theme';
+import { Analytics } from '@vercel/analytics/react';
 
 import Layout from '@/components/Layout';
 import { MyUserContextProvider } from '@/utils/useUser';
@@ -27,6 +28,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         <ChakraProvider theme={theme}>
           <Layout>
             <Component {...pageProps} />
+            <Analytics />
           </Layout>
         </ChakraProvider>
       </MyUserContextProvider>
